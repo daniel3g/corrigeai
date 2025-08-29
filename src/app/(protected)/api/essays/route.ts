@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   if (file) {
     // upload pro Storage
     const ext = file.name.split('.').pop() || 'bin'
-    const path = `essays/${essay.student_id}/${essay.id}/original.${ext}`
+    const path = `${essay.student_id}/${essay.id}/original.${ext}`
     const arrayBuffer = await file.arrayBuffer()
     const { error: eUp } = await supabase.storage
       .from('essays')
@@ -57,6 +57,7 @@ export async function POST(req: Request) {
     essay_id: essay.id,
     student_id: essay.student_id,
     class_id,
+    title,
     source_type,
     raw_file_path: uploadedPath,
     content: typed, // pode ser null
