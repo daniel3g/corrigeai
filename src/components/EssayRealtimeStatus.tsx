@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   essayId: string;
-  initialStatus: string; // status carregado no server
+  initialStatus: string;
 };
 
 const STATUS_LABEL: Record<string, string> = {
