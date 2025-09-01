@@ -1,9 +1,9 @@
 import { ReactNode } from 'react'
-import { createServer } from '@/lib/supabase/server' // ou '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server' // ou '@/lib/supabase/server'
 import Link from 'next/link'
 
 async function Header() {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
   return (

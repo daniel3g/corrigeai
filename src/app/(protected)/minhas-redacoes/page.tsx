@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createServer } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 
 export default async function MinhasRedacoesPage() {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/login')
 

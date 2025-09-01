@@ -1,13 +1,19 @@
 "use client";
-
 import { createBrowserClient } from "@supabase/ssr";
 
 export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { isSingleton: true }
+    {
+      isSingleton: true,
+      auth: {
+        flowType: "implicit",   // <<< permaneça implicit
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    }
   );
 }
-
 export default createClient;

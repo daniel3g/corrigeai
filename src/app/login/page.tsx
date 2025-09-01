@@ -77,6 +77,12 @@ export default function LoginPage() {
           {loading ? 'Entrando…' : 'Entrar'}
         </button>
 
+        // dentro do seu form de login
+        <p className="mt-2 text-sm">
+          <a href="/reset-request" className="underline">Esqueci minha senha</a>
+        </p>
+
+
         {err && <p className="text-red-600 text-sm">{err}</p>}
       </div>
     </main>

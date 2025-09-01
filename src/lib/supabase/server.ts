@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 // import { headers } from "next/headers";  // ❌ remova esta linha
 
-export function createServer() {
+export function createClient() {
   const cookieStore = cookies();
 
   return createServerClient(
