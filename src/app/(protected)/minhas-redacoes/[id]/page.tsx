@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServer as createServerClient } from "@/lib/supabase/server";
 import EssayRealtimeStatus from "@/components/EssayRealtimeStatus";
+import EssayCorrections from "@/components/EssayCorrections";
 
 type SignedFile = { name: string; url: string };
 
@@ -28,7 +29,7 @@ async function getEssayData(id: string) {
   // 3) Correções
   const { data: corrections } = await supabase
     .from("essay_corrections")
-    .select("id, created_at, score, feedback, rubric, meta")
+    .select("id, created_at, score, feedback, rubric")
     .eq("essay_id", essay.id)
     .order("created_at", { ascending: false });
 
@@ -108,43 +109,7 @@ export default async function Page({ params }: { params: { id: string } }) {
       {/* Correção (quando existir) */}
       <section className="mb-8 rounded-2xl border p-4">
         <h2 className="mb-3 text-lg font-medium">Correção</h2>
-        {corrections.length ? (
-          <div className="space-y-6">
-            {corrections.map((c) => (
-              <div key={c.id} className="rounded-xl border p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm text-slate-500">
-                    Recebida em {new Date(c.created_at).toLocaleString("pt-BR")}
-                  </p>
-                  {typeof c.score === "number" && (
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium">
-                      Nota: {c.score}
-                    </span>
-                  )}
-                </div>
-                {c.feedback && (
-                  <div className="prose max-w-none whitespace-pre-wrap">
-                    {c.feedback}
-                  </div>
-                )}
-                {c.rubric && (
-                  <details className="mt-3">
-                    <summary className="cursor-pointer text-sm text-slate-600">
-                      Ver rubrica/detalhes
-                    </summary>
-                    <pre className="mt-2 overflow-auto rounded bg-slate-50 p-3 text-xs">
-{JSON.stringify(c.rubric, null, 2)}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-slate-500">
-            Ainda não há correção para esta redação. Assim que chegar, aparece aqui automaticamente.
-          </p>
-        )}
+        <EssayCorrections essayId={essay.id} initialCorrections={corrections} />
       </section>
     </div>
   );

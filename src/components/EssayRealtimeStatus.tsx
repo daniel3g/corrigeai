@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import createClient from "@/lib/supabase/client";
 
 type Props = {
   essayId: string;
@@ -17,31 +17,39 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function EssayRealtimeStatus({ essayId, initialStatus }: Props) {
-  const supabase = createClient();
   const [status, setStatus] = useState(initialStatus);
 
   useEffect(() => {
-    const channel = supabase
+    const supabase = createClient();
+
+    // UPDATE no status da própria redação (fonte autoritativa)
+    const chEssay = supabase
       .channel(`essays-status-${essayId}`)
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "essays",
-          filter: `id=eq.${essayId}`,
-        },
+        { event: "UPDATE", schema: "public", table: "essays", filter: `id=eq.${essayId}` },
         (payload) => {
           const newStatus = (payload.new as any)?.status;
-          if (newStatus) setStatus(newStatus);
+          if (typeof newStatus === "string") setStatus(newStatus);
         }
       )
       .subscribe();
 
+    // Opcional/otimista: ao inserir uma correção, já marcar como corrected
+    const chCorr = supabase
+      .channel(`essay-corrections-${essayId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "essay_corrections", filter: `essay_id=eq.${essayId}` },
+        () => setStatus((s) => (s === "corrected" ? s : "corrected"))
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(chEssay);
+      supabase.removeChannel(chCorr);
     };
-  }, [essayId, supabase]);
+  }, [essayId]); // <- sem 'supabase' nas deps
 
   const label = STATUS_LABEL[status] ?? status;
 
