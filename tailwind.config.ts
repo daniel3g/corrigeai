@@ -11,6 +11,9 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        customBlue: "#122640",
+        customPink: "#E02988",
+        customLight: "#F2EDE8"
       },
     },
   },
