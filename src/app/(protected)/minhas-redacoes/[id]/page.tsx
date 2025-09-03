@@ -1,7 +1,7 @@
 // app/minhas-redacoes/[id]/page.tsx
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createServer as createServerClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import EssayRealtimeStatus from "@/components/EssayRealtimeStatus";
 import EssayCorrections from "@/components/EssayCorrections";
 

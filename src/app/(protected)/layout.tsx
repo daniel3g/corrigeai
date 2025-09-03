@@ -1,6 +1,8 @@
 import { ReactNode } from 'react'
-import { createClient } from '@/lib/supabase/server' // ou '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import Logo from '../../../public/images/logo.webp'
+import Image from 'next/image'
 
 async function Header() {
   const supabase = createClient()
@@ -8,7 +10,12 @@ async function Header() {
 
   return (
     <header className="border-b px-6 py-3 flex items-center justify-between">
-      <Link href="/dashboard" className="font-semibold">CorrigeAI</Link>
+      <Link href="/dashboard" className="font-semibold">
+        <Image 
+        src={Logo}
+        alt='logo estudai'
+        />
+      </Link>
       <div className="flex items-center gap-4">
         <Link href="/minhas-redacoes" className="text-sm">Minhas Redações</Link>
         {session?.user?.email && <span className="text-sm text-gray-600">{session.user.email}</span>}

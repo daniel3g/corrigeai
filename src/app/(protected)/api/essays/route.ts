@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createServer } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs' // precisa de Node p/ multipart
 
 export async function POST(req: Request) {
-  const supabase = createServer()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
