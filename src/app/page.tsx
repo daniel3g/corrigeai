@@ -1,6 +1,6 @@
 import Link from "next/link"
 import ForwardRecoveryHash from "@/components/ForwardRecoveryHash"
-import Logo from "../../public/images/logo.webp"
+import Logo from "@/public/images/logo.webp"
 import Image from "next/image"
 
 

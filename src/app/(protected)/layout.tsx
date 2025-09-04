@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import Logo from '../../../public/images/logo.webp'
+import Logo from '@/public/images/logo.webp'
 import Image from 'next/image'
 
 async function Header() {
