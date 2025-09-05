@@ -1,8 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+
+// impede SSG/prerender no build
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const runtime = 'nodejs'
 
 function parseHash() {
   if (typeof window === 'undefined') return { type: null, access_token: null, refresh_token: null }
@@ -15,7 +20,7 @@ function parseHash() {
   }
 }
 
-export default function AuthCallbackPage() {
+function CallbackInner() {
   const supabase = createClient()
   const router = useRouter()
   const params = useSearchParams()
@@ -25,17 +30,16 @@ export default function AuthCallbackPage() {
   const { type: typeHash, access_token, refresh_token } = parseHash()
   const type = typeQuery || typeHash
 
-  // Modo recuperação se (a) type=recovery OU (b) vieram tokens no hash e não há code
   const isRecovery = useMemo(() => {
     return type === 'recovery' || (!!access_token && !!refresh_token && !code)
   }, [type, access_token, refresh_token, code])
 
   const [bootMsg, setBootMsg] = useState('Validando link…')
   const [error, setError] = useState<string | null>(null)
-  const [ready, setReady] = useState(false)     // pronto para exibir o form
+  const [ready, setReady] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [dbg, setDbg] = useState<any>(null)     // debug opcional
+  const [dbg, setDbg] = useState<any>(null)
   const bootOnce = useRef(false)
 
   useEffect(() => {
@@ -45,41 +49,29 @@ export default function AuthCallbackPage() {
     const installAndWaitSession = async () => {
       try {
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-        // (debug) confere o projeto do cliente vs link recebido
-        setDbg({
-          clientUrl: url,
-          hasCode: !!code,
-          hasHashTokens: !!access_token && !!refresh_token,
-          type,
-        })
+        setDbg({ clientUrl: url, hasCode: !!code, hasHashTokens: !!access_token && !!refresh_token, type })
 
-        // 1) Fluxo PKCE (?code=...)
+        // 1) PKCE (?code=...)
         if (code) {
-  setBootMsg('Trocando código por sessão…')
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-  if (error) {
-    // log detalhado para depurar PKCE
-    console.error('[PKCE] exchangeCodeForSession error:', error)
-    throw new Error(`PKCE falhou: ${error.message}`)
-  }
-}
+          setBootMsg('Trocando código por sessão…')
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) throw new Error(`PKCE falhou: ${error.message}`)
+        }
 
-        // 2) Fluxo por hash (#access_token & #refresh_token)
+        // 2) Link por hash (#access_token & #refresh_token)
         if (!code && access_token && refresh_token) {
           setBootMsg('Instalando sessão a partir do link…')
           const { error } = await supabase.auth.setSession({ access_token, refresh_token })
           if (error) throw error
-
-          // limpa o hash para não poluir a URL
           if (typeof window !== 'undefined') {
             history.replaceState(null, '', window.location.pathname + window.location.search)
           }
         }
 
-        // 3) Aguarda a sessão ficar disponível (alguns ms)
+        // 3) Espera curta pela sessão
         setBootMsg('Confirmando sessão…')
         let tries = 0
-        let session = null
+        let session = null as any
         while (tries < 5) {
           const { data } = await supabase.auth.getSession()
           session = data.session
@@ -89,28 +81,21 @@ export default function AuthCallbackPage() {
         }
         if (!session) throw new Error('Sessão ausente após instalar. Verifique NEXT_PUBLIC_SUPABASE_URL/ANON_KEY.')
 
-          if (!isRecovery) {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              const { data: me } = await supabase
-                .from("profiles")
-                .select("role")
-                .eq("id", user.id)
-                .maybeSingle();
+        if (!isRecovery) {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: me } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', user.id)
+              .maybeSingle()
 
-              if (me?.role === "teacher") {
-                router.replace("/professor/dashboard");
-                return; // interrompe o efeito
-              }
-              if (me?.role === "student") {
-                router.replace("/aluno/dashboard");
-                return;
-              }
-            }
-            // fallback
-            router.replace("/dashboard");
-            return;
+            if (me?.role === 'teacher') { router.replace('/professor/dashboard'); return }
+            if (me?.role === 'student') { router.replace('/aluno/dashboard'); return }
           }
+          router.replace('/dashboard')
+          return
+        }
 
         setReady(true)
         setError(null)
@@ -132,14 +117,13 @@ export default function AuthCallbackPage() {
     if (password.length < 8) return setError('A nova senha precisa ter pelo menos 8 caracteres.')
     if (password !== confirm) return setError('As senhas não conferem.')
 
-    // Garante sessão antes de atualizar
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return setError('Sessão ausente. Abra novamente o link de redefinição.')
 
     const { error } = await supabase.auth.updateUser({ password })
     if (error) return setError(error.message)
 
-    router.replace('/minhas-redacoes') // sua dashboard
+    router.replace('/minhas-redacoes')
   }
 
   // Estado de boot / erro
@@ -151,7 +135,6 @@ export default function AuthCallbackPage() {
         {error && (
           <div className="mt-2 text-sm text-red-600">
             <p>{error}</p>
-            {/* Debug opcional: comente isto em produção */}
             {dbg && (
               <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
                 {JSON.stringify(dbg, null, 2)}
@@ -163,7 +146,6 @@ export default function AuthCallbackPage() {
     )
   }
 
-  // Se não for recovery, não redireciona; mostra mensagem neutra
   if (!isRecovery) {
     return (
       <main className="p-6 max-w-md mx-auto">
@@ -175,35 +157,31 @@ export default function AuthCallbackPage() {
     )
   }
 
-  // Formulário (já com sessão instalada)
   return (
     <main className="p-6 max-w-sm mx-auto">
       <h1 className="text-xl font-semibold mb-4">Defina sua nova senha</h1>
       <form onSubmit={handleSetPassword} className="space-y-3">
         <div>
           <label className="block text-sm mb-1">Nova senha</label>
-          <input
-            type="password"
-            className="w-full border rounded px-3 py-2"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            autoFocus
-          />
+          <input type="password" className="w-full border rounded px-3 py-2"
+                 value={password} onChange={e => setPassword(e.target.value)} autoFocus />
         </div>
         <div>
           <label className="block text-sm mb-1">Confirmar senha</label>
-          <input
-            type="password"
-            className="w-full border rounded px-3 py-2"
-            value={confirm}
-            onChange={e => setConfirm(e.target.value)}
-          />
+          <input type="password" className="w-full border rounded px-3 py-2"
+                 value={confirm} onChange={e => setConfirm(e.target.value)} />
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
-        <button type="submit" className="w-full rounded px-3 py-2 border">
-          Salvar nova senha
-        </button>
+        <button type="submit" className="w-full rounded px-3 py-2 border">Salvar nova senha</button>
       </form>
     </main>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<main className="p-6">Carregando…</main>}>
+      <CallbackInner />
+    </Suspense>
   )
 }
