@@ -4,10 +4,10 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-// ✅ Força modo dinâmico e desativa cache/prerender
+// ✅ Força modo dinâmico e sem cache/prerender
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-export const fetchCache = 'force-no-store' // evita caching dessa página
+export const fetchCache = 'force-no-store'
 
 function parseHash() {
   if (typeof window === 'undefined') return { type: null, access_token: null, refresh_token: null }
@@ -30,7 +30,6 @@ function CallbackInner() {
   const { type: typeHash, access_token, refresh_token } = parseHash()
   const type = typeQuery || typeHash
 
-  // recovery se vier type=recovery OU tokens no hash (sem code)
   const isRecovery = useMemo(() => {
     return type === 'recovery' || (!!access_token && !!refresh_token && !code)
   }, [type, access_token, refresh_token, code])
@@ -52,14 +51,12 @@ function CallbackInner() {
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL
         setDbg({ clientUrl: url, hasCode: !!code, hasHashTokens: !!access_token && !!refresh_token, type })
 
-        // 1) PKCE (?code=...)
         if (code) {
           setBootMsg('Trocando código por sessão…')
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) throw new Error(`PKCE falhou: ${error.message}`)
         }
 
-        // 2) Link por hash (#access_token & #refresh_token)
         if (!code && access_token && refresh_token) {
           setBootMsg('Instalando sessão a partir do link…')
           const { error } = await supabase.auth.setSession({ access_token, refresh_token })
@@ -69,7 +66,6 @@ function CallbackInner() {
           }
         }
 
-        // 3) Aguarda sessão ficar disponível
         setBootMsg('Confirmando sessão…')
         let tries = 0
         let session: any = null
@@ -82,7 +78,6 @@ function CallbackInner() {
         }
         if (!session) throw new Error('Sessão ausente após instalar. Verifique NEXT_PUBLIC_SUPABASE_URL/ANON_KEY.')
 
-        // 4) Se NÃO for recovery, redireciona para o painel certo
         if (!isRecovery) {
           const { data: { user } } = await supabase.auth.getUser()
           if (user) {
@@ -99,7 +94,6 @@ function CallbackInner() {
           return
         }
 
-        // 5) Se for recovery, mostra o formulário
         setReady(true)
         setError(null)
         setBootMsg('')
@@ -129,7 +123,6 @@ function CallbackInner() {
     router.replace('/minhas-redacoes')
   }
 
-  // Loading / erro
   if (!ready) {
     return (
       <main className="p-6 max-w-md mx-auto space-y-2">
@@ -149,7 +142,6 @@ function CallbackInner() {
     )
   }
 
-  // Se não for recovery (por segurança, caso caia aqui)
   if (!isRecovery) {
     return (
       <main className="p-6 max-w-md mx-auto">
@@ -161,7 +153,6 @@ function CallbackInner() {
     )
   }
 
-  // Form de redefinição
   return (
     <main className="p-6 max-w-sm mx-auto">
       <h1 className="text-xl font-semibold mb-4">Defina sua nova senha</h1>
