@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client"; // 👈 client, não server
+import type { Session } from "@supabase/supabase-js";
+
+import Logo from '@/public/images/logo.webp'
+import Image from 'next/image'
 
 type NavItem = {
   href: string;
@@ -16,9 +21,39 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/professor/redacoes/placeholder", label: "Redações (atalho)", match: (p) => p.startsWith("/professor/redacoes") },
 ];
 
-export default function Sidebar() {
+export default function Sidebar() {                 // 👈 não é async
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setSession(data.session ?? null);
+    };
+
+    fetchSession();
+
+    // manter sessão atualizada
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      if (mounted) setSession(sess);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
 
   function isActive(item: NavItem) {
     if (item.match) return item.match(pathname);
@@ -46,6 +81,12 @@ export default function Sidebar() {
         ${open ? "block" : "hidden"} md:block`}
       >
         <div className="p-4 border-b hidden md:block">
+          <Link href="/dashboard" className="font-semibold">
+            <Image 
+            src={Logo}
+            alt='logo estudai'
+            />
+          </Link>
           <div className="text-lg font-semibold">Painel do Professor</div>
           <div className="text-xs opacity-70">Navegação</div>
         </div>
@@ -74,6 +115,18 @@ export default function Sidebar() {
             <li>Dentro da turma, clique em um aluno.</li>
             <li>Depois escolha uma redação para detalhar.</li>
           </ul>
+        </div>
+
+        <div className="p-3 border-t space-y-2">
+          {session?.user?.email && (
+            <div className="text-sm text-gray-600 truncate">{session.user.email}</div>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="rounded bg-black px-3 py-2 text-white text-sm w-full"
+          >
+            Sair
+          </button>
         </div>
       </aside>
     </>

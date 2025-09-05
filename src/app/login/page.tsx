@@ -42,7 +42,28 @@ export default function LoginPage() {
     }
 
     // sucesso
-    router.replace('/dashboard');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return router.replace("/login");
+
+    // pega o role do perfil
+    const { data: me, error: roleErr } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (roleErr || !me?.role) {
+      // fallback antigo
+      return router.replace("/dashboard");
+    }
+
+    // redireciona por função
+    if (me.role === "teacher") return router.replace("/professor/dashboard");
+    if (me.role === "student") return router.replace("/aluno/dashboard");
+
+    // fallback (admin ou sem role mapeado)
+    return router.replace("/dashboard");
+
   }
 
   return (

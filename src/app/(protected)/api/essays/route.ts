@@ -1,66 +1,64 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import crypto from 'crypto'
 
-export const runtime = 'nodejs' // precisa de Node p/ multipart
+export const runtime = 'nodejs'
 
 export async function POST(req: Request) {
   const supabase = createClient()
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const formData = await req.formData()
-  const class_id = formData.get('class_id') as string | null
   const title = (formData.get('title') as string | null) ?? 'Redação'
-  const typed = formData.get('content') as string | null
-  const file = formData.get('file') as File | null
+  const content = (formData.get('content') as string | null)?.trim() ?? ''
+  if (!content) return NextResponse.json({ error: 'content required' }, { status: 400 })
 
-  if (!class_id) return NextResponse.json({ error: 'class_id required' }, { status: 400 })
-  if (!typed && !file) return NextResponse.json({ error: 'content or file required' }, { status: 400 })
+  // 🔎 Busca a turma do aluno em class_enrollments
+  let query = supabase
+    .from('class_enrollments')
+    .select('class_id, status')
+    .eq('student_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
 
-  // cria essay
-  const source_type = typed ? 'typed' : (file?.type?.startsWith('image/') ? 'image' : 'file')
+  // Se você usar um enum com valor "active" ou "enrolled", descomente UMA das linhas:
+  // query = query.eq('status', 'active')
+  // query = query.eq('status', 'enrolled')
+
+  const { data: enroll, error: enErr } = await query.maybeSingle()
+  if (enErr || !enroll?.class_id) {
+    return NextResponse.json({ error: 'student not enrolled in a class' }, { status: 400 })
+  }
+  const class_id = enroll.class_id as string
+
+  // 📝 Cria a redação (apenas texto)
   const { data: essay, error: e1 } = await supabase
     .from('essays')
     .insert({
       student_id: user.id,
       class_id,
       title,
-      content: typed ?? null,
-      source_type,
+      content,
+      source_type: 'typed',
       status: 'queued',
     })
     .select('id, student_id')
     .single()
 
-  if (e1 || !essay) return NextResponse.json({ error: e1?.message || 'insert failed' }, { status: 400 })
-
-  let uploadedPath: string | null = null
-
-  if (file) {
-    // upload pro Storage
-    const ext = file.name.split('.').pop() || 'bin'
-    const path = `${essay.student_id}/${essay.id}/original.${ext}`
-    const arrayBuffer = await file.arrayBuffer()
-    const { error: eUp } = await supabase.storage
-      .from('essays')
-      .upload(path, Buffer.from(arrayBuffer), { upsert: true, contentType: file.type || 'application/octet-stream' })
-    if (eUp) return NextResponse.json({ error: eUp.message }, { status: 400 })
-    uploadedPath = path
-
-    // salva caminho bruto na tabela (opcional)
-    await supabase.from('essays').update({ raw_file_path: path }).eq('id', essay.id)
+  if (e1 || !essay) {
+    return NextResponse.json({ error: e1?.message || 'insert failed' }, { status: 400 })
   }
 
-  // dispara n8n
+  // 🚀 Dispara n8n
   const payload = {
     essay_id: essay.id,
     student_id: essay.student_id,
     class_id,
     title,
-    source_type,
-    raw_file_path: uploadedPath,
-    content: typed, // pode ser null
+    source_type: 'typed',
+    raw_file_path: null,
+    content,
   }
 
   try {
@@ -71,9 +69,8 @@ export async function POST(req: Request) {
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(`n8n returned ${res.status}`)
-    // marca como processing
     await supabase.from('essays').update({ status: 'processing' }).eq('id', essay.id)
-  } catch (err) {
+  } catch {
     await supabase.from('essays').update({ status: 'failed' }).eq('id', essay.id)
     return NextResponse.json({ error: 'n8n dispatch failed' }, { status: 500 })
   }

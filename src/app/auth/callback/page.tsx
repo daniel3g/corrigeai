@@ -89,6 +89,29 @@ export default function AuthCallbackPage() {
         }
         if (!session) throw new Error('Sessão ausente após instalar. Verifique NEXT_PUBLIC_SUPABASE_URL/ANON_KEY.')
 
+          if (!isRecovery) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const { data: me } = await supabase
+                .from("profiles")
+                .select("role")
+                .eq("id", user.id)
+                .maybeSingle();
+
+              if (me?.role === "teacher") {
+                router.replace("/professor/dashboard");
+                return; // interrompe o efeito
+              }
+              if (me?.role === "student") {
+                router.replace("/aluno/dashboard");
+                return;
+              }
+            }
+            // fallback
+            router.replace("/dashboard");
+            return;
+          }
+
         setReady(true)
         setError(null)
         setBootMsg('')
