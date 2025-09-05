@@ -4,10 +4,10 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-// impede SSG/prerender no build
+// ✅ Força modo dinâmico e desativa cache/prerender
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 export const runtime = 'nodejs'
+export const fetchCache = 'force-no-store' // evita caching dessa página
 
 function parseHash() {
   if (typeof window === 'undefined') return { type: null, access_token: null, refresh_token: null }
@@ -30,6 +30,7 @@ function CallbackInner() {
   const { type: typeHash, access_token, refresh_token } = parseHash()
   const type = typeQuery || typeHash
 
+  // recovery se vier type=recovery OU tokens no hash (sem code)
   const isRecovery = useMemo(() => {
     return type === 'recovery' || (!!access_token && !!refresh_token && !code)
   }, [type, access_token, refresh_token, code])
@@ -68,10 +69,10 @@ function CallbackInner() {
           }
         }
 
-        // 3) Espera curta pela sessão
+        // 3) Aguarda sessão ficar disponível
         setBootMsg('Confirmando sessão…')
         let tries = 0
-        let session = null as any
+        let session: any = null
         while (tries < 5) {
           const { data } = await supabase.auth.getSession()
           session = data.session
@@ -81,6 +82,7 @@ function CallbackInner() {
         }
         if (!session) throw new Error('Sessão ausente após instalar. Verifique NEXT_PUBLIC_SUPABASE_URL/ANON_KEY.')
 
+        // 4) Se NÃO for recovery, redireciona para o painel certo
         if (!isRecovery) {
           const { data: { user } } = await supabase.auth.getUser()
           if (user) {
@@ -91,12 +93,13 @@ function CallbackInner() {
               .maybeSingle()
 
             if (me?.role === 'teacher') { router.replace('/professor/dashboard'); return }
-            if (me?.role === 'student') { router.replace('/aluno/dashboard'); return }
+            if (me?.role === 'student')  { router.replace('/aluno/dashboard'); return }
           }
           router.replace('/dashboard')
           return
         }
 
+        // 5) Se for recovery, mostra o formulário
         setReady(true)
         setError(null)
         setBootMsg('')
@@ -126,7 +129,7 @@ function CallbackInner() {
     router.replace('/minhas-redacoes')
   }
 
-  // Estado de boot / erro
+  // Loading / erro
   if (!ready) {
     return (
       <main className="p-6 max-w-md mx-auto space-y-2">
@@ -146,6 +149,7 @@ function CallbackInner() {
     )
   }
 
+  // Se não for recovery (por segurança, caso caia aqui)
   if (!isRecovery) {
     return (
       <main className="p-6 max-w-md mx-auto">
@@ -157,22 +161,34 @@ function CallbackInner() {
     )
   }
 
+  // Form de redefinição
   return (
     <main className="p-6 max-w-sm mx-auto">
       <h1 className="text-xl font-semibold mb-4">Defina sua nova senha</h1>
       <form onSubmit={handleSetPassword} className="space-y-3">
         <div>
           <label className="block text-sm mb-1">Nova senha</label>
-          <input type="password" className="w-full border rounded px-3 py-2"
-                 value={password} onChange={e => setPassword(e.target.value)} autoFocus />
+          <input
+            type="password"
+            className="w-full border rounded px-3 py-2"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoFocus
+          />
         </div>
         <div>
           <label className="block text-sm mb-1">Confirmar senha</label>
-          <input type="password" className="w-full border rounded px-3 py-2"
-                 value={confirm} onChange={e => setConfirm(e.target.value)} />
+          <input
+            type="password"
+            className="w-full border rounded px-3 py-2"
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+          />
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
-        <button type="submit" className="w-full rounded px-3 py-2 border">Salvar nova senha</button>
+        <button type="submit" className="w-full rounded px-3 py-2 border">
+          Salvar nova senha
+        </button>
       </form>
     </main>
   )
