@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
+import { GoogleButton } from '@/components/GoogleButton'
+
 import Logo from '@/public/images/logo.webp';
 import BgLogin from '@/public/images/bg-login-caption.png';
 import Image from 'next/image';
@@ -129,6 +131,8 @@ export default function LoginPage() {
               Esqueci minha senha
             </a>
           </p>
+
+          <GoogleButton />
 
           {err && <p className="text-red-600 text-sm">{err}</p>}
         </div>
