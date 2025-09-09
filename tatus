@@ -1,0 +1,81 @@
+[1mdiff --git a/package-lock.json b/package-lock.json[m
+[1mindex 4eb9af3..f2f2d16 100644[m
+[1m--- a/package-lock.json[m
+[1m+++ b/package-lock.json[m
+[36m@@ -9,7 +9,8 @@[m
+       "version": "0.1.0",[m
+       "dependencies": {[m
+         "@supabase/ssr": "^0.7.0",[m
+[31m-        "@supabase/supabase-js": "^2.56.0",[m
+[32m+[m[32m        "@supabase/supabase-js": "^2.57.2",[m
+[32m+[m[32m        "dotenv": "^17.2.2",[m
+         "next": "14.2.32",[m
+         "react": "^18",[m
+         "react-dom": "^18"[m
+[36m@@ -332,9 +333,9 @@[m
+       }[m
+     },[m
+     "node_modules/@supabase/realtime-js": {[m
+[31m-      "version": "2.15.1",[m
+[31m-      "resolved": "https://registry.npmjs.org/@supabase/realtime-js/-/realtime-js-2.15.1.tgz",[m
+[31m-      "integrity": "sha512-edRFa2IrQw50kNntvUyS38hsL7t2d/psah6om6aNTLLcWem0R6bOUq7sk7DsGeSlNfuwEwWn57FdYSva6VddYw==",[m
+[32m+[m[32m      "version": "2.15.5",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@supabase/realtime-js/-/realtime-js-2.15.5.tgz",[m
+[32m+[m[32m      "integrity": "sha512-/Rs5Vqu9jejRD8ZeuaWXebdkH+J7V6VySbCZ/zQM93Ta5y3mAmocjioa/nzlB6qvFmyylUgKVS1KpE212t30OA==",[m
+       "license": "MIT",[m
+       "dependencies": {[m
+         "@supabase/node-fetch": "^2.6.13",[m
+[36m@@ -365,16 +366,16 @@[m
+       }[m
+     },[m
+     "node_modules/@supabase/supabase-js": {[m
+[31m-      "version": "2.56.0",[m
+[31m-      "resolved": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.56.0.tgz",[m
+[31m-      "integrity": "sha512-XqwhHSyVnkjdliPN61CmXsmFGnFHTX2WDdwjG3Ukvdzuu3Trix+dXupYOQ3BueIyYp7B6t0yYpdQtJP2hIInyg==",[m
+[32m+[m[32m      "version": "2.57.2",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.57.2.tgz",[m
+[32m+[m[32m      "integrity": "sha512-MxaZqZKUPK1ExzOilgSZqCPCxVPjevUrh6bcWz1SrDZexFc9VJ2cJbVP1EG1hKQx/bfLdTUjIZMoIrYpYqAPYw==",[m
+       "license": "MIT",[m
+       "dependencies": {[m
+         "@supabase/auth-js": "2.71.1",[m
+         "@supabase/functions-js": "2.4.5",[m
+         "@supabase/node-fetch": "2.6.15",[m
+         "@supabase/postgrest-js": "1.21.3",[m
+[31m-        "@supabase/realtime-js": "2.15.1",[m
+[32m+[m[32m        "@supabase/realtime-js": "2.15.5",[m
+         "@supabase/storage-js": "^2.10.4"[m
+       }[m
+     },[m
+[36m@@ -716,6 +717,18 @@[m
+       "dev": true,[m
+       "license": "MIT"[m
+     },[m
+[32m+[m[32m    "node_modules/dotenv": {[m
+[32m+[m[32m      "version": "17.2.2",[m
+[32m+[m[32m      "resolved": "https://registry.npmjs.org/dotenv/-/dotenv-17.2.2.tgz",[m
+[32m+[m[32m      "integrity": "sha512-Sf2LSQP+bOlhKWWyhFsn0UsfdK/kCWRv1iuA2gXAwt3dyNabr6QSj00I2V10pidqz69soatm9ZwZvpQMTIOd5Q==",[m
+[32m+[m[32m      "license": "BSD-2-Clause",[m
+[32m+[m[32m      "engines": {[m
+[32m+[m[32m        "node": ">=12"[m
+[32m+[m[32m      },[m
+[32m+[m[32m      "funding": {[m
+[32m+[m[32m        "url": "https://dotenvx.com"[m
+[32m+[m[32m      }[m
+[32m+[m[32m    },[m
+     "node_modules/eastasianwidth": {[m
+       "version": "0.2.0",[m
+       "resolved": "https://registry.npmjs.org/eastasianwidth/-/eastasianwidth-0.2.0.tgz",[m
+[1mdiff --git a/package.json b/package.json[m
+[1mindex c58123a..7d901af 100644[m
+[1m--- a/package.json[m
+[1m+++ b/package.json[m
+[36m@@ -10,7 +10,8 @@[m
+   },[m
+   "dependencies": {[m
+     "@supabase/ssr": "^0.7.0",[m
+[31m-    "@supabase/supabase-js": "^2.56.0",[m
+[32m+[m[32m    "@supabase/supabase-js": "^2.57.2",[m
+[32m+[m[32m    "dotenv": "^17.2.2",[m
+     "next": "14.2.32",[m
+     "react": "^18",[m
+     "react-dom": "^18"[m
