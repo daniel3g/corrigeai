@@ -4,10 +4,11 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-// ✅ Força modo dinâmico e sem cache/prerender
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const fetchCache = 'force-no-store'
+
+const DEBUG = true
 
 function parseHash() {
   if (typeof window === 'undefined') return { type: null, access_token: null, refresh_token: null }
@@ -18,6 +19,15 @@ function parseHash() {
     access_token: qs.get('access_token'),
     refresh_token: qs.get('refresh_token'),
   }
+}
+
+function lsDump() {
+  if (typeof window === 'undefined') return []
+  const ks = Object.keys(localStorage)
+  const interesting = ks.filter(
+    (k) => k.startsWith('sb-') || k.toLowerCase().includes('pkce') || k.toLowerCase().includes('supabase')
+  )
+  return interesting.map((k) => ({ key: k, size: (localStorage.getItem(k) ?? '').length }))
 }
 
 function CallbackInner() {
@@ -42,71 +52,62 @@ function CallbackInner() {
   const [dbg, setDbg] = useState<any>(null)
   const bootOnce = useRef(false)
 
-  useEffect(() => {
-    if (bootOnce.current) return
-    bootOnce.current = true
+  // dentro do useEffect da CallbackInner, substitua TODO o bloco try por este:
 
-    const installAndWaitSession = async () => {
-      try {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-        setDbg({ clientUrl: url, hasCode: !!code, hasHashTokens: !!access_token && !!refresh_token, type })
+useEffect(() => {
+  if (bootOnce.current) return
+  bootOnce.current = true
 
-        if (code) {
-          setBootMsg('Trocando código por sessão…')
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) throw new Error(`PKCE falhou: ${error.message}`)
-        }
+  const run = async () => {
+    try {
+      setBootMsg('Processando retorno do provedor…')
 
-        if (!code && access_token && refresh_token) {
-          setBootMsg('Instalando sessão a partir do link…')
-          const { error } = await supabase.auth.setSession({ access_token, refresh_token })
-          if (error) throw error
-          if (typeof window !== 'undefined') {
-            history.replaceState(null, '', window.location.pathname + window.location.search)
-          }
-        }
+      // ✅ Com detectSessionInUrl: true, o Supabase já processou code/state da URL.
+      // Só precisamos aguardar a sessão ficar disponível.
+      let tries = 0
+      let session = null
+      while (tries < 12) {
+        const { data } = await supabase.auth.getSession()
+        session = data.session
+        if (session) break
+        await new Promise(r => setTimeout(r, 150))
+        tries++
+      }
+      if (!session) throw new Error('Sessão ausente após processar o retorno.')
 
-        setBootMsg('Confirmando sessão…')
-        let tries = 0
-        let session: any = null
-        while (tries < 5) {
-          const { data } = await supabase.auth.getSession()
-          session = data.session
-          if (session) break
-          await new Promise(r => setTimeout(r, 150))
-          tries++
-        }
-        if (!session) throw new Error('Sessão ausente após instalar. Verifique NEXT_PUBLIC_SUPABASE_URL/ANON_KEY.')
-
-        if (!isRecovery) {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            const { data: me } = await supabase
-              .from('profiles')
-              .select('role')
-              .eq('id', user.id)
-              .maybeSingle()
-
-            if (me?.role === 'teacher') { router.replace('/professor/dashboard'); return }
-            if (me?.role === 'student')  { router.replace('/aluno/dashboard'); return }
-          }
-          router.replace('/dashboard')
-          return
-        }
-
+      // Se for reset de senha (hash tokens), seu código atual já cobre com parseHash().
+      // Aqui, como fallback, dá para detectar também pelo parâmetro ?type=recovery, se usar esse formato.
+      const { type: typeHash, access_token, refresh_token } = parseHash()
+      const isRecoveryNow = type === 'recovery' || (!!access_token && !!refresh_token)
+      if (isRecoveryNow) {
         setReady(true)
         setError(null)
         setBootMsg('')
-      } catch (e: any) {
-        setError(e?.message ?? 'Falha ao validar link.')
-        setReady(false)
-        setBootMsg('')
+        return
       }
-    }
 
-    installAndWaitSession()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, access_token, refresh_token])
+      // Pós-login no servidor (domínio/papel) → redireciona
+      setBootMsg('Validando domínio e papel…')
+      const resp = await fetch('/api/auth/post-login', { method: 'POST' })
+      if (resp.status === 403) {
+        await supabase.auth.signOut()
+        router.replace('/login?err=domain')
+        return
+      }
+      if (!resp.ok) throw new Error('Falha no pós-login.')
+      const data = await resp.json()
+      router.replace(data?.redirectTo || '/dashboard')
+    } catch (e: any) {
+      setError(e?.message ?? 'Falha ao validar link.')
+      setReady(false)
+      setBootMsg('')
+    }
+  }
+
+  run()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [/* dependências mantidas vazias por padrão */])
+
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -123,20 +124,15 @@ function CallbackInner() {
     router.replace('/minhas-redacoes')
   }
 
-  if (!ready) {
+  if (!ready && isRecovery) {
     return (
       <main className="p-6 max-w-md mx-auto space-y-2">
         <h1 className="text-xl font-semibold">Carregando…</h1>
         {bootMsg && <p className="text-sm text-gray-600">{bootMsg}</p>}
-        {error && (
-          <div className="mt-2 text-sm text-red-600">
-            <p>{error}</p>
-            {dbg && (
-              <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
-                {JSON.stringify(dbg, null, 2)}
-              </pre>
-            )}
-          </div>
+        {(error || dbg) && (
+          <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
+            {JSON.stringify({ error, dbg }, null, 2)}
+          </pre>
         )}
       </main>
     )
@@ -145,14 +141,18 @@ function CallbackInner() {
   if (!isRecovery) {
     return (
       <main className="p-6 max-w-md mx-auto">
-        <h1 className="text-xl font-semibold mb-2">Link não é de recuperação</h1>
-        <p className="text-sm text-gray-600">
-          Este link não parece ser de redefinição de senha. Abra o link mais recente enviado ao seu e-mail.
-        </p>
+        <h1 className="text-xl font-semibold mb-2">Carregando…</h1>
+        {bootMsg && <p className="text-sm text-gray-600">{bootMsg}</p>}
+        {(error || dbg) && (
+          <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
+            {JSON.stringify({ error, dbg }, null, 2)}
+          </pre>
+        )}
       </main>
     )
   }
 
+  // UI de redefinição de senha
   return (
     <main className="p-6 max-w-sm mx-auto">
       <h1 className="text-xl font-semibold mb-4">Defina sua nova senha</h1>
@@ -163,7 +163,7 @@ function CallbackInner() {
             type="password"
             className="w-full border rounded px-3 py-2"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             autoFocus
           />
         </div>
@@ -173,7 +173,7 @@ function CallbackInner() {
             type="password"
             className="w-full border rounded px-3 py-2"
             value={confirm}
-            onChange={e => setConfirm(e.target.value)}
+            onChange={(e) => setConfirm(e.target.value)}
           />
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -181,6 +181,14 @@ function CallbackInner() {
           Salvar nova senha
         </button>
       </form>
+      {dbg && (
+        <details className="mt-4 text-xs text-neutral-600">
+          <summary>Debug info</summary>
+          <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
+            {JSON.stringify(dbg, null, 2)}
+          </pre>
+        </details>
+      )}
     </main>
   )
 }
