@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-const DEBUG = true
+import Image from 'next/image'
+import BgLogin from '@/public/images/bg-login-caption.png'
+import Logo from '@/public/images/logo.webp'
+
+const DEBUG = false
 const GOOGLE_DOMAIN_HINT = 'colegioprogresso.g12.br'
 
 function useLocalStorageDebug() {
@@ -69,19 +73,26 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen grid md:grid-cols-2">
-      <section className="relative hidden md:flex items-center justify-center bg-neutral-100">
-        <div className="max-w-md p-10">
-          <h1 className="text-2xl font-semibold">Bem-vindo ao Estudai</h1>
-          <p className="mt-2 text-sm text-neutral-600">Entre com Google ou com e-mail e senha.</p>
+    <main className='flex w-full h-screen'>
+      <section className="hidden sm:block w-2/3 h-screen relative">
+        <div className="absolute inset-0 w-full h-full">
+          <Image
+            src={BgLogin}
+            alt="Astronauta do Futuro Estudai"
+            layout="fill"
+            objectFit="cover"
+            className="-z-10 brightness-50"
+          />
         </div>
       </section>
 
-      <section className="flex items-center justify-center p-6">
+      <section className='flex flex-col w-full justify-center items-center sm:w-1/3'>
         <div className="w-full max-w-sm space-y-5">
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold">Entrar</h2>
-            <p className="text-sm text-neutral-600">Use sua conta institucional ou seu acesso com senha.</p>
+            <Image 
+            src={Logo}
+            alt='Logo Estudai'
+            />
           </div>
 
           {okMsg && <div className="rounded border border-green-200 bg-green-50 p-2 text-sm text-green-700">
@@ -89,7 +100,7 @@ export default function LoginPage() {
           </div>}
           {err && <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700">{err}</div>}
 
-          <button onClick={signInWithGoogle} disabled={loading} className="w-full rounded-md border px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-60">
+          <button onClick={signInWithGoogle} disabled={loading} className="w-full bg-customBlue rounded-md border px-4 py-2 text-sm text-white hover:bg-customBlueLight">
             {loading ? 'Redirecionando…' : 'Entrar com Google'}
           </button>
 
@@ -122,8 +133,7 @@ export default function LoginPage() {
           </div>
 
           <div className="flex items-center justify-between text-sm">
-            <Link href="/auth/request-reset" className="underline">Esqueci minha senha</Link>
-            <Link href="/" className="text-neutral-500 hover:underline">Voltar ao site</Link>
+            <Link href="/recuperar-senha" className="underline">Esqueci minha senha</Link>
           </div>
 
           {DEBUG && (

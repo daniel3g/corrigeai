@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/professor/turmas", label: "Minhas turmas", match: (p) => p.startsWith("/professor/turmas") },
   { href: "/professor/alunos/placeholder", label: "Alunos (atalho)", match: (p) => p.startsWith("/professor/alunos") },
   { href: "/professor/redacoes/placeholder", label: "Redações (atalho)", match: (p) => p.startsWith("/professor/redacoes") },
+  { href: "/reset-password", label: "Alterar Senha", match: (p) => p.startsWith("/reset-password") },
 ];
 
 export default function Sidebar() {                 // 👈 não é async

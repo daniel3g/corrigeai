@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const fetchCache = 'force-no-store'
 
-const DEBUG = true
+const DEBUG = false
 
 function parseHash() {
   if (typeof window === 'undefined') return { type: null, access_token: null, refresh_token: null }
@@ -52,62 +52,123 @@ function CallbackInner() {
   const [dbg, setDbg] = useState<any>(null)
   const bootOnce = useRef(false)
 
-  // dentro do useEffect da CallbackInner, substitua TODO o bloco try por este:
+  useEffect(() => {
+    if (bootOnce.current) return
+    bootOnce.current = true
 
-useEffect(() => {
-  if (bootOnce.current) return
-  bootOnce.current = true
+    const run = async () => {
+      try {
+        setBootMsg('Processando retorno do provedor…')
 
-  const run = async () => {
-    try {
-      setBootMsg('Processando retorno do provedor…')
+        // 1) Se vier com ?code=, troca por sessão (PKCE)
+        const codeFromQS = params.get('code')
+        if (codeFromQS) {
+          try {
+            await supabase.auth.exchangeCodeForSession(codeFromQS)
+          } catch (err) {
+            if (DEBUG) setDbg((d: any) => ({ ...d, exchangeErr: String(err) }))
+          }
 
-      // ✅ Com detectSessionInUrl: true, o Supabase já processou code/state da URL.
-      // Só precisamos aguardar a sessão ficar disponível.
-      let tries = 0
-      let session = null
-      while (tries < 12) {
-        const { data } = await supabase.auth.getSession()
-        session = data.session
-        if (session) break
-        await new Promise(r => setTimeout(r, 150))
-        tries++
-      }
-      if (!session) throw new Error('Sessão ausente após processar o retorno.')
+          // Se também vier type=recovery, já mostra o formulário
+          const t = params.get('type')
+          if (t === 'recovery') {
+            setReady(true)
+            setError(null)
+            setBootMsg('')
+            return
+          }
+        }
 
-      // Se for reset de senha (hash tokens), seu código atual já cobre com parseHash().
-      // Aqui, como fallback, dá para detectar também pelo parâmetro ?type=recovery, se usar esse formato.
-      const { type: typeHash, access_token, refresh_token } = parseHash()
-      const isRecoveryNow = type === 'recovery' || (!!access_token && !!refresh_token)
-      if (isRecoveryNow) {
-        setReady(true)
-        setError(null)
+        // 2) Se vier com tokens no hash (#access_token/#refresh_token), instala sessão manualmente
+        const { access_token: at, refresh_token: rt } = parseHash()
+        if (!codeFromQS && at && rt) {
+          try {
+            await supabase.auth.setSession({ access_token: at, refresh_token: rt })
+          } catch (err) {
+            if (DEBUG) setDbg((d: any) => ({ ...d, setSessionErr: String(err) }))
+          }
+          // Fluxo de recuperação: abre a UI de redefinição
+          setReady(true)
+          setError(null)
+          setBootMsg('')
+          return
+        }
+
+        // 3) Espera a sessão ficar disponível (detectSessionInUrl true cobre o resto)
+        let tries = 0
+        let session = null as any
+        while (tries < 12) {
+          const { data } = await supabase.auth.getSession()
+          session = data.session
+          if (session) break
+          await new Promise((r) => setTimeout(r, 150))
+          tries++
+        }
+        if (!session) throw new Error('Sessão ausente após processar o retorno.')
+
+        // 4) Se for recovery (via ?type= ou via hash), mostra formulário
+        const { access_token: at2, refresh_token: rt2 } = parseHash()
+        const typeQuery2 = params.get('type')
+        const isRecoveryNow = typeQuery2 === 'recovery' || (!!at2 && !!rt2)
+        if (isRecoveryNow) {
+          setReady(true)
+          setError(null)
+          setBootMsg('')
+          return
+        }
+
+        // 5) Fluxo normal de login: instala cookies no server e pós-login
+        const { data: { session: s } } = await supabase.auth.getSession()
+        if (!s?.access_token || !s?.refresh_token) throw new Error('Sessão sem tokens.')
+
+        await fetch('/api/auth/install-cookie', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token: s.access_token, refresh_token: s.refresh_token }),
+        })
+
+        setBootMsg('Validando domínio e papel…')
+
+        const accessToken = s.access_token
+        const resp = await fetch('/api/auth/post-login', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+
+        if (resp.status === 403) {
+          await supabase.auth.signOut()
+          router.replace('/login?err=domain')
+          return
+        }
+        if (!resp.ok) {
+          let reason = 'Falha no pós-login.'
+          try {
+            const j = await resp.json()
+            reason = j?.reason ? `Falha no pós-login: ${j.reason}` : reason
+          } catch {}
+          throw new Error(reason)
+        }
+
+        const data = await resp.json()
+        router.replace(data?.redirectTo || '/dashboard')
+      } catch (e: any) {
+        setError(e?.message ?? 'Falha ao validar link.')
+        setReady(false)
         setBootMsg('')
-        return
+      } finally {
+        if (DEBUG) {
+          setDbg((d: any) => ({
+            ...d,
+            ls: lsDump(),
+            url: typeof window !== 'undefined' ? window.location.href : null,
+          }))
+        }
       }
-
-      // Pós-login no servidor (domínio/papel) → redireciona
-      setBootMsg('Validando domínio e papel…')
-      const resp = await fetch('/api/auth/post-login', { method: 'POST' })
-      if (resp.status === 403) {
-        await supabase.auth.signOut()
-        router.replace('/login?err=domain')
-        return
-      }
-      if (!resp.ok) throw new Error('Falha no pós-login.')
-      const data = await resp.json()
-      router.replace(data?.redirectTo || '/dashboard')
-    } catch (e: any) {
-      setError(e?.message ?? 'Falha ao validar link.')
-      setReady(false)
-      setBootMsg('')
     }
-  }
 
-  run()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [/* dependências mantidas vazias por padrão */])
-
+    run()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,7 +182,7 @@ useEffect(() => {
     const { error } = await supabase.auth.updateUser({ password })
     if (error) return setError(error.message)
 
-    router.replace('/minhas-redacoes')
+    router.replace('/login')
   }
 
   if (!ready && isRecovery) {
@@ -152,7 +213,7 @@ useEffect(() => {
     )
   }
 
-  // UI de redefinição de senha
+  // UI de redefinição de senha (recovery)
   return (
     <main className="p-6 max-w-sm mx-auto">
       <h1 className="text-xl font-semibold mb-4">Defina sua nova senha</h1>

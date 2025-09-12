@@ -18,7 +18,8 @@ const config: Config = {
         customBlue: "#122640",
         customPink: "#E02988",
         customLight: "#F2EEEB",
-        customBackground: "#F5F9FB"
+        customBackground: "#F5F9FB",
+        customBlueLight: "#162E51"
       },
     },
   },

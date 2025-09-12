@@ -13,11 +13,10 @@ export function createClient() {
       auth: {
         flowType: 'pkce',
         persistSession: true,
-        // ⚠️ Ativar auto-detecção para o SDK processar o code/state da URL
         detectSessionInUrl: true,
+        autoRefreshToken: true, // ✅ garante renovação automática
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        // Dica: se quiser isolar de outros apps, defina uma storageKey fixa (use a MESMA em todo o app)
-        // storageKey: 'sb-corrigeai-auth',
+        storageKey: 'corrigeai-auth', // ✅ evita conflito com outros apps/domínios
       },
     }
   )

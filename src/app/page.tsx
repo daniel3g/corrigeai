@@ -1,9 +1,29 @@
+'use client'
+
 import Link from "next/link"
 import ForwardRecoveryHash from "@/components/ForwardRecoveryHash"
 import Logo from "@/public/images/logo.webp"
 import Image from "next/image"
 
+import { useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+
 export default function Home() {
+
+  const router = useRouter()
+  const params = useSearchParams()
+
+  useEffect(() => {
+    const code = params.get('code')
+    if (code) {
+      // preserva toda a query e o hash se existir
+      const qs = window.location.search || ''
+      const hash = window.location.hash || ''
+      router.replace(`/auth/callback${qs}${hash}`)
+    }
+  }, [params, router])
+
   return (
     <>
       <header className="flex flex-col sm:flex-row items-center gap-3 sm:gap-0 px-5 sm:px-10 lg:px-20 py-3 border-b-2">

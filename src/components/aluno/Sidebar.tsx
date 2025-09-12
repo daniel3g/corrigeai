@@ -13,6 +13,7 @@ const NAV = [
   { href: "/aluno/dashboard", label: "Dashboard", starts: "/aluno/dashboard" },
   { href: "/aluno/minhas-redacoes", label: "Minhas Redações", starts: "/aluno/minhas-redacoes" },
   { href: "/aluno/minhas-redacoes/new", label: "Nova Redação", starts: "/aluno/nova-redacao" },
+  { href: "/reset-password", label: "Alterar Senha", starts: "/reset-password" },
 ];
 
 export default function StudentSidebar() {
