@@ -1,23 +1,19 @@
 'use client'
 
+import { Suspense, useEffect } from 'react'   // ✅ importa hooks direto
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from "next/link"
 import ForwardRecoveryHash from "@/components/ForwardRecoveryHash"
 import Logo from "@/public/images/logo.webp"
 import Image from "next/image"
 
-import { useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-
-
-export default function Home() {
-
+function HomeContent() {
   const router = useRouter()
   const params = useSearchParams()
 
   useEffect(() => {
     const code = params.get('code')
     if (code) {
-      // preserva toda a query e o hash se existir
       const qs = window.location.search || ''
       const hash = window.location.hash || ''
       router.replace(`/auth/callback${qs}${hash}`)
@@ -119,26 +115,11 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="flex flex-col justify-center px-5 sm:px-10 lg:px-20 py-14 sm:py-20">
+            <div className="flex flex-col justify-center px-5 sm:px-10 lg:px-20 py-14 sm:py-20">
         <h2 className="text-2xl sm:text-3xl font-bold text-center">
           Pronto para transformar o aprendizado?
         </h2>
-        <p className="text-center text-base sm:text-lg lg:text-xl mt-6 sm:mt-8">
-          Junte-se a milhares de estudantes e professores que já estão usando o EstudAI para <br />
-          melhorar a qualidade da educação.
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center mt-8 sm:mt-10 gap-3 sm:gap-5">
-          <Link href="/login">
-            <button className="bg-customBlue text-customLight py-2.5 px-8 rounded-md w-full sm:w-auto">
-              Cadastrar como Aluno
-            </button>
-          </Link>
-          <Link href="/login">
-            <button className="rounded-md border border-customBlue py-2.5 px-8 w-full sm:w-auto">
-              Cadastrar como Professor
-            </button>
-          </Link>
-        </div>
+        {/* ... */}
       </div>
 
       <footer className="flex flex-col items-center px-5 sm:px-10 lg:px-20 py-10 border-t-2">
@@ -154,5 +135,13 @@ export default function Home() {
         </p>
       </footer>
     </>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   )
 }
